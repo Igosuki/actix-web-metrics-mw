@@ -1,0 +1,17 @@
+[package]
+name = "actix_web_metrics_mw"
+version = "0.1.0"
+authors = ["Guillaume Balaine <igosuki@gmail.com>"]
+edition = "2018"
+description = "Actix middleware library for metrics"
+
+[dependencies]
+actix-web = "1.0.5"
+futures = "0.1.28"
+actix-service = "0.4.1"
+metrics = "0.11.1"
+metrics-core = "0.5.1"
+metrics-runtime = "0.1.0"
+log = "0.4.8"
+
+statsd = "^0.9.0"
