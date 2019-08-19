@@ -11,139 +11,38 @@ use actix_web::dev::{ServiceRequest, ServiceResponse};
 use actix_web::{http, Error, HttpResponse};
 use futures::future::{ok, Either, FutureResult};
 use futures::Poll;
-use metrics::{Recorder};
-use metrics_core::{Key, Builder, Drain, Observer, Observe};
-use metrics::SetRecorderError;
-use std::ops::Deref;
-use metrics_runtime::{Receiver, Sink, Controller};
+use metrics_runtime::{Receiver, Controller};
 use std::time::Duration;
-use statsd::Client;
+use statsd_metrics::{StatsdExporter, StatsdObserverBuilder};
+use std::{sync::Arc};
+use std::borrow::BorrowMut;
 
-/// Builder for [`StatsdObserver`].
-pub struct StatsdObserverBuilder {
-    pub(crate) client: statsd::Client,
-}
-
-impl StatsdObserverBuilder {
-    pub fn new() -> Self {
-        Self{
-            client: Client::new("127.0.0.1:8125", "myapp").unwrap(),
-        }
-    }
-
-    fn client(mut self, client: statsd::Client) -> Self {
-        self.client = client;
-        self
-    }
-}
-
-impl Builder for StatsdObserverBuilder {
-    type Output = StatsdObserver;
-
-    fn build(&self) -> Self::Output {
-        StatsdObserver {
-            client: self.client,
-        }
-    }
-}
-
-impl Default for StatsdObserverBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-pub struct StatsdObserver {
-    client: statsd::Client,
-}
-
-impl Observer for StatsdObserver {
-    fn observe_counter(&mut self, key: Key, value: u64) {
-        unimplemented!()
-    }
-
-    fn observe_gauge(&mut self, key: Key, value: i64) {
-        unimplemented!()
-    }
-
-    fn observe_histogram(&mut self, key: Key, values: &[u64]) {
-        unimplemented!()
-    }
-}
-
-impl Drain<String> for StatsdObserver {
-    fn drain(&mut self) -> String {
-        unimplemented!()
-    }
-}
-
-pub struct StatsdExporter<C, B>
-    where
-        B: Builder,
-{
-    controller: C,
-    observer: B::Output,
-    interval: Duration,
-}
-
-impl<C, B> StatsdExporter<C, B>
-    where
-        B: Builder,
-        B::Output: Drain<String> + Observer,
-        C: Observe,
-{
-    /// Creates a new [`LogExporter`] that logs at the configurable level.
-    ///
-    /// Observers expose their output by being converted into strings.
-    pub fn new(controller: C, builder: B, interval: Duration) -> Self {
-        StatsdExporter {
-            controller,
-            observer: builder.statsd_client(Client::new("127.0.0.1:8125", "myapp").unwrap()).build(),
-            interval,
-        }
-    }
-
-    /// Runs this exporter on the current thread, logging output at the interval
-    /// given on construction.
-    pub fn run(self) {
-        loop {
-            thread::sleep(self.interval);
-
-            self.turn();
-        }
-    }
-
-    /// Run this exporter, logging output only once.
-    pub fn turn(self) {
-        self.controller.observe(&mut self.observer);
-        let output = self.observer.drain();
-    }
-
-}
+mod statsd_metrics;
 
 pub struct Metrics {
     pub(crate) namespace: String,
     pub(crate) endpoint: String,
     exporter: StatsdExporter<Controller, StatsdObserverBuilder>,
+    receiver: Arc<Receiver>,
 }
-
-static receiver : Receiver = Receiver::builder().build().expect("failed to create receiver");
 
 impl Metrics {
     /// Create a new Metrics. You set the namespace and the metrics endpoint
     /// through here.
     pub fn new(namespace: &str, endpoint: &str) -> Self
     {
+        let receiver = Arc::from(Receiver::builder().build().expect("failed to create receiver"));
         let exporter = StatsdExporter::new(receiver.get_controller().clone(), StatsdObserverBuilder::new(), Duration::from_secs(5));
         Metrics {
             namespace: namespace.to_string(),
             endpoint: endpoint.to_string(),
             exporter,
+            receiver,
         }
     }
-    pub fn start(&self) {
-        thread::spawn(move || self.exporter.run());
-        receiver.install();
+    pub fn start(mut self) {
+        self.receiver.install();
+        thread::spawn(|| self.exporter.borrow_mut().run());
     }
 }
 
