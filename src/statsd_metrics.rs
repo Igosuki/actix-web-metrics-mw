@@ -15,8 +15,8 @@ const DEFAULT_NAMESPACE: &str = "myapp";
 impl StatsdObserverBuilder {
     pub fn new() -> Self {
         Self {
-            namespace: DEFAULT_STATSD_URL,
-            endpoint: DEFAULT_NAMESPACE,
+            namespace: DEFAULT_NAMESPACE,
+            endpoint: DEFAULT_STATSD_URL,
         }
     }
 

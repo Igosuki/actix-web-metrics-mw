@@ -1,0 +1,15 @@
+version: "3"
+services:
+  graphite-statsd:
+    container_name: graphite-statsd
+    image: hopsoft/graphite-statsd
+    ports:
+      - "80:80"
+      - "2003-2004:2003-2004"
+      - "2023-2024:2023-2024"
+      - "8125:8125/udp"
+      - "8126:8126"
+    volumes:
+      - "./data/graphite/storage:/opt/graphite/storage"
+    restart: always
+
