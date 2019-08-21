@@ -1,9 +1,9 @@
 #[macro_use]
 extern crate log;
+extern crate cadence;
 extern crate metrics;
 extern crate metrics_core;
 extern crate metrics_runtime;
-extern crate statsd;
 
 use actix_service::{Service, Transform};
 use actix_web::{
@@ -16,50 +16,69 @@ use actix_web::{
 use actix_web::{http, HttpResponse};
 use futures::future::{ok, Either, FutureResult};
 use futures::{Async, Future, Poll};
-use metrics::Recorder;
+use metrics::{Recorder, SetRecorderError};
 use metrics_core::{Key, Label};
 use metrics_runtime::data::Snapshot;
-use metrics_runtime::{AsScoped, Controller, Receiver};
+use metrics_runtime::{AsScoped, Controller, Receiver, Sink};
 use serde_json;
 use statsd_metrics::{StatsdExporter, StatsdObserverBuilder};
 use std::borrow::Cow;
 use std::borrow::{Borrow, BorrowMut};
 use std::collections::HashMap;
 use std::marker::PhantomData;
+use std::ops::Deref;
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, SystemTime};
 
 mod statsd_metrics;
 
+#[derive(Clone)]
+#[must_use = "must be set up as a middleware for actix-web"]
+/// By default two metrics are tracked (this assumes the namespace `actix_web_prom`):
+///
+/// This uses the generic metrics crate which allows you to :
+///   - Push histograms, gauges and counters to a receiver
+///   - Register an exporter that will periodically drain the latest metrics
+///
+/// Available exporters :
+///   - Statsd : supports the generic mode, or the dogstats mode, in dogstats mode the labels will
+///     be sent as tags in the metric name
+///
+/// Default metrics :
+///   - `http_requests_total` (labels: endpoint, method, status): request counter for each
+///    endpoint and method.
+///
+///   - `http_requests_duration` (labels: endpoint, method,
+///    status): histogram of request durations for each endpoint.
 pub struct Metrics {
     pub(crate) namespace: String,
     pub(crate) path: String,
-    exporter: StatsdExporter<Controller, StatsdObserverBuilder>,
-    receiver: Box<Receiver>,
+    exporter: Box<StatsdExporter<Controller, StatsdObserverBuilder>>,
+    sink: Sink,
 }
 
 impl Metrics {
     /// Create a new Metrics. You set the namespace and the metrics endpoint
     /// through here.
     pub fn new(path: &str, namespace: &str) -> Self {
-        let receiver = Box::new(
-            Receiver::builder()
-                .build()
-                .expect("failed to create receiver"),
-        );
+        let receiver = Receiver::builder()
+            .build()
+            .expect("failed to create receiver");
         let controller = receiver.get_controller();
         let exporter = StatsdExporter::new(
             controller.clone(),
             StatsdObserverBuilder::new(),
             Duration::from_secs(5),
         );
-        Metrics {
+        let m = Metrics {
             namespace: namespace.to_string(),
             path: path.to_string(),
-            exporter,
-            receiver,
-        }
+            exporter: Box::new(exporter),
+            sink: receiver.get_sink(),
+        };
+        receiver.install();
+        m
     }
 
     fn update_metrics(&self, path: &str, method: &Method, status: StatusCode, clock: SystemTime) {
@@ -73,30 +92,31 @@ impl Metrics {
         if let Ok(elapsed) = clock.elapsed() {
             let duration =
                 (elapsed.as_secs() as f64) + f64::from(elapsed.subsec_nanos()) / 1_000_000_000_f64;
-            self.receiver.record_histogram(
-                Key::from_name_and_labels("http_requests_duration", labels),
-                duration as u64,
-            );
+            self.sink
+                .clone()
+                .histogram_with_labels("http_requests_duration", labels)
+                .record_value(duration as u64);
         }
-        self.receiver.record_counter(
-            Key::from_name_and_labels(
+        self.sink
+            .clone()
+            .counter_with_labels(
                 "http_requests_total",
                 vec![
                     Label::new("path", ""),
                     Label::new("method", ""),
                     Label::new("status", ""),
                 ],
-            ),
-            1,
-        );
+            )
+            .record(1);
     }
 
     fn metrics(&self) -> String {
-        let snapshot: Snapshot = self.receiver.get_controller().snapshot();
+        let x = self.exporter.clone().get_controller();
+        let snapshot = x.snapshot();
         let metrics: HashMap<String, String> = snapshot
             .into_measurements()
             .iter()
-            .map(|(k, v)| (k.to_string(), "".to_string()))
+            .map(|(k, v)| (format!("{}", k.name()), "".to_string()))
             .collect();
         serde_json::to_string(&metrics).unwrap()
     }
@@ -106,10 +126,7 @@ impl Metrics {
     }
 
     pub fn start(mut self) {
-        thread::spawn(move || {
-            self.receiver.install();
-            self.exporter.borrow_mut().run()
-        });
+        thread::spawn(move || self.exporter.run());
     }
 }
 
@@ -275,12 +292,14 @@ mod tests {
 
         let res = read_response(&mut app, TestRequest::with_uri("/metrics").to_request());
         let body = String::from_utf8(res.to_vec()).unwrap();
-        assert!(&body.contains(
+        println!("{}", body);
+        assert_eq!(
+            &body,
             &String::from_utf8(
                 web::Bytes::from(r#"{"server": {"requests": {"omegalul": { "count": 1 } } } }"#)
                     .to_vec()
             )
             .unwrap()
-        ));
+        );
     }
 }

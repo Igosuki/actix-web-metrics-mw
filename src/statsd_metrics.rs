@@ -1,9 +1,17 @@
-use statsd::Client;
-use metrics_core::{Key, Builder, Drain, Observer, Observe};
+use metrics_core::{Builder, Drain, Key, Observe, Observer};
+use std::borrow::BorrowMut;
+use std::cell::RefCell;
+use std::ops::Deref;
+use std::sync::atomic::AtomicPtr;
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
+use cadence::prelude::*;
+use cadence::{StatsdClient, UdpMetricSink, DEFAULT_PORT};
+
 /// Builder for [`StatsdObserver`].
+#[derive(Clone)]
 pub struct StatsdObserverBuilder {
     pub(crate) namespace: &'static str,
     pub(crate) endpoint: &'static str,
@@ -31,7 +39,7 @@ impl Builder for StatsdObserverBuilder {
 
     fn build(&self) -> Self::Output {
         StatsdObserver {
-            client: Client::new(self.endpoint, self.namespace).unwrap(),
+            client: StatsdClient::from_udp_host(self.namespace, self.endpoint).unwrap(),
         }
     }
 }
@@ -42,13 +50,14 @@ impl Default for StatsdObserverBuilder {
     }
 }
 
+#[derive(Clone)]
 pub struct StatsdObserver {
-    client: statsd::Client,
+    client: StatsdClient,
 }
 
 impl Observer for StatsdObserver {
-    fn observe_counter(&mut self, _key: Key, _value: u64) {
-        unimplemented!()
+    fn observe_counter(&mut self, key: Key, value: u64) {
+        self.client.count(key.to_string().as_str(), value as i64);
     }
 
     fn observe_gauge(&mut self, _key: Key, _value: i64) {
@@ -66,9 +75,10 @@ impl Drain<String> for StatsdObserver {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct StatsdExporter<C, B>
-    where
-        B: Builder,
+where
+    B: Builder,
 {
     controller: C,
     observer: B::Output,
@@ -76,10 +86,10 @@ pub struct StatsdExporter<C, B>
 }
 
 impl<C, B> StatsdExporter<C, B>
-    where
-        B: Builder,
-        B::Output: Drain<String> + Observer,
-        C: Observe,
+where
+    B: Builder,
+    B::Output: Drain<String> + Observer,
+    C: Observe,
 {
     /// Creates a new [`StatsdExporter`] that logs events periodically
     ///
@@ -107,5 +117,9 @@ impl<C, B> StatsdExporter<C, B>
         self.controller.observe(&mut self.observer);
         let output = self.observer.drain();
         log!(log::Level::Info, "{}", output);
+    }
+
+    pub fn get_controller(self) -> C {
+        self.controller
     }
 }
