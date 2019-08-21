@@ -19,12 +19,15 @@ use futures::{Async, Future, Poll};
 use metrics::{Recorder, SetRecorderError};
 use metrics_core::{Key, Label};
 use metrics_runtime::data::Snapshot;
+use metrics_runtime::Measurement;
 use metrics_runtime::{AsScoped, Controller, Receiver, Sink};
 use serde_json;
 use statsd_metrics::{StatsdExporter, StatsdObserverBuilder};
 use std::borrow::Cow;
 use std::borrow::{Borrow, BorrowMut};
 use std::collections::HashMap;
+use std::fmt;
+use std::fmt::Display;
 use std::marker::PhantomData;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -116,9 +119,17 @@ impl Metrics {
         let metrics: HashMap<String, String> = snapshot
             .into_measurements()
             .iter()
-            .map(|(k, v)| (format!("{}", k.name()), "".to_string()))
+            .map(|(k, v)| (format!("{}", k.name()), Metrics::print_measure(v)))
             .collect();
         serde_json::to_string(&metrics).unwrap()
+    }
+
+    fn print_measure(v: &Measurement) -> String {
+        match v {
+            Measurement::Counter(a) => a.to_string(),
+            Measurement::Gauge(g) => g.to_string(),
+            Measurement::Histogram(h) => format!("{:?}", h.decompress()),
+        }
     }
 
     fn matches(&self, path: &str, method: &Method) -> bool {
@@ -296,7 +307,7 @@ mod tests {
         assert_eq!(
             &body,
             &String::from_utf8(
-                web::Bytes::from(r#"{"server": {"requests": {"omegalul": { "count": 1 } } } }"#)
+                web::Bytes::from(r#"{"http_requests_duration":"[0]","http_requests_total":"1"}"#)
                     .to_vec()
             )
             .unwrap()
