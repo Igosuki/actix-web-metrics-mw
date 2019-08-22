@@ -68,35 +68,25 @@ $ curl http://localhost:8080/metrics
 ## Custom metrics
 
 You can instantiate `Metrics` and then use its sink to register your custom
-metric .
+metric.
 
-Then you can pass this counter through `.data()` to have it available within the resource
-responder.
+You can also use the metrics library macros or the entire metrics runtime to add new metrics and labels as suit your needs.
 
 ```rust
 use actix_web::{web, App, HttpResponse, HttpServer};
-use actix_web_prom::PrometheusMetrics;
-use prometheus::IntCounterVec;
+use actix_web_metrics_mw::Metrics;
 
-fn health(counter: web::Data<IntCounterVec>) -> HttpResponse {
-    counter.with_label_values(&["endpoint", "method", "status"]).inc();
+fn health() -> HttpResponse {
+    counter!("endpoint.method.status", 1);
     HttpResponse::Ok().finish()
 }
 
 fn main() -> std::io::Result<()> {
-    let prometheus = PrometheusMetrics::new("api", "/metrics");
-
-    let counter_opts = opts!("counter", "some random counter").namespace("api");
-    let counter = IntCounterVec::new(counter_opts, &["endpoint", "method", "status"]).unwrap();
-    prometheus
-        .registry
-        .register(Box::new(counter.clone()))
-        .unwrap();
+    let metrics = Metrics::new("/metrics", "actix_web_mw_test");
 
     HttpServer::new(move || {
         App::new()
-            .wrap(prometheus.clone())
-            .data(counter.clone())
+            .wrap(metrics.clone())
             .service(web::resource("/health").to(health))
     })
     .bind("127.0.0.1:8080")?
