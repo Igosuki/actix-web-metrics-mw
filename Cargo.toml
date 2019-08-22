@@ -9,7 +9,7 @@ repository = "https://github.com/Igosuki/actix-web-metrics-mw"
 documentation = "https://docs.rs/actix-web-metrics-mw"
 readme = "README.md"
 exclude = [".gitignore", ".travis.yml", ".cargo/config", "appveyor.yml"]
-keywords = ["actix", "actix-web", "statsd", "middleware", "metrics", "http", "web", "async"]
+keywords = ["actix", "actix-web", "statsd", "middleware", "metrics"]
 categories = ["network-programming", "asynchronous", "metrics", "web-programming::metrics", "statsd"]
 license = "MIT/Apache-2.0"
 
