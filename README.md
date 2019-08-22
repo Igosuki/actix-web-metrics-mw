@@ -13,14 +13,16 @@ Metrics middleware instrumentation for [actix-web](https://github.com/actix/acti
 By default two metrics are tracked (this assumes the namespace `actix_web_metrics_mw`):
 
 Available exporters :
-  - Statsd : supports the generic mode, or the dogstats mode, in dogstats mode the labels will
-    be sent as tags in the metric name
+  - Statsd : uses a statsd rust client that buffers metrics through UDP, dogstats format is supported for metric labels
 
 Default metrics :
   - `http_requests_total` (labels: endpoint, method, status): request counter for each
    endpoint and method.
   - `http_requests_duration` (labels: endpoint, method,
    status): histogram of request durations for each endpoint.
+
+## Issues
+Please feel free to submit issues for evolutions you feel are necessary.
 
 ## Usage
 

@@ -1,15 +1,15 @@
 version: "3"
 services:
-  graphite-statsd:
-    container_name: graphite-statsd
-    image: hopsoft/graphite-statsd
-    ports:
-      - "80:80"
-      - "2003-2004:2003-2004"
-      - "2023-2024:2023-2024"
-      - "8125:8125/udp"
-      - "8126:8126"
-    volumes:
-      - "./data/graphite/storage:/opt/graphite/storage"
+  # Grafana on port 3003, login = root / root
+  # Data-Source -> add InfluxDB
+  # doc is available at https://hub.docker.com/r/samuelebistoletti/docker-statsd-influxdb-grafana/
+  metrics:
+    image: samuelebistoletti/docker-statsd-influxdb-grafana:latest
     restart: always
+    ports:
+      - 3003:3003
+      - 3004:8888
+      - 8086:8086
+      - 8125:8125/udp
+
 

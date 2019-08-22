@@ -25,7 +25,7 @@ use serde_json;
 use statsd_metrics::{StatsdExporter, StatsdObserverBuilder};
 use std::borrow::Cow;
 use std::borrow::{Borrow, BorrowMut};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::fmt::Display;
 use std::marker::PhantomData;
@@ -116,7 +116,7 @@ impl Metrics {
     fn metrics(&self) -> String {
         let x = self.exporter.clone().get_controller();
         let snapshot = x.snapshot();
-        let metrics: HashMap<String, String> = snapshot
+        let metrics: BTreeMap<String, String> = snapshot
             .into_measurements()
             .iter()
             .map(|(k, v)| (format!("{}", k.name()), Metrics::print_measure(v)))
