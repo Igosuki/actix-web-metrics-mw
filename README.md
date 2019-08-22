@@ -1,3 +1,5 @@
+# WARNING : Not ready for use (2019/08/22)
+
 # actix-web-metrics-mw
 Generic middleware library for actix-web metrics aggregation, can send to various outlets.
 
