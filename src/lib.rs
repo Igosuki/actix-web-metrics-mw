@@ -18,7 +18,7 @@ use actix_web::{http, HttpResponse};
 use futures::future::{ok, Either, FutureResult};
 use futures::{Async, Future, Poll};
 use metrics::{Recorder, SetRecorderError};
-use metrics_core::{Key, Label};
+use metrics_core::{Key, Label, ScopedString};
 use metrics_runtime::data::Snapshot;
 use metrics_runtime::Measurement;
 use metrics_runtime::{AsScoped, Controller, Receiver, Sink};
@@ -60,12 +60,17 @@ pub struct Metrics {
     pub(crate) path: String,
     exporter: Box<StatsdExporter<Controller, StatsdObserverBuilder>>,
     sink: Sink,
+    default_labels: Vec<String>,
+}
+
+fn to_scoped((k, v): (&str, &str)) -> Label {
+    Label::new(Cow::from(k).into_owned(), Cow::from(v).into_owned())
 }
 
 impl Metrics {
     /// Create a new Metrics. You set the namespace and the metrics endpoint
     /// through here.
-    pub fn new(path: &str, namespace: &str) -> Self {
+    pub fn new(path: &str, namespace: &str, labels: Vec<(&str, &str)>) -> Self {
         let receiver = Receiver::builder()
             .build()
             .expect("failed to create receiver");
@@ -75,11 +80,15 @@ impl Metrics {
             StatsdObserverBuilder::new(),
             Duration::from_secs(5),
         );
+        let mut sink = receiver.get_sink();
+        let x: Vec<Label> = labels.iter().map(|&kv| to_scoped(kv)).collect();
+        sink.add_default_labels(x);
         let m = Metrics {
             namespace: namespace.to_string(),
             path: path.to_string(),
             exporter: Box::new(exporter),
-            sink: receiver.get_sink(),
+            sink,
+            default_labels: vec![],
         };
         receiver.install();
         m
@@ -91,11 +100,11 @@ impl Metrics {
         let st = Cow::from(status.as_str()).into_owned();
         let labels: Vec<Label> = labels!("path" => p, "method" => m, "status" => st);
         if let Ok(elapsed) = clock.elapsed() {
-            let duration = (elapsed.as_secs() as f64) + f64::from(elapsed.subsec_nanos());
+            let duration = (elapsed.as_micros() as u64) + elapsed.subsec_micros() as u64;
             self.sink
                 .clone()
                 .histogram_with_labels("http_requests_duration", labels.clone())
-                .record_value(duration as u64);
+                .record_value(duration);
         }
         self.sink
             .clone()
@@ -272,10 +281,15 @@ mod tests {
     use super::*;
     use actix_web::test::{call_service, init_service, read_body, read_response, TestRequest};
     use actix_web::{web, App, HttpResponse};
+    use std::any::Any;
 
     #[test]
     fn middleware_basic() {
-        let metrics = Metrics::new("/metrics", "actix_web_mw_test");
+        let metrics = Metrics::new(
+            "/metrics",
+            "actix_web_mw_test",
+            vec![("test_label", "test_value")],
+        );
 
         let mut app = init_service(
             App::new()
@@ -287,20 +301,16 @@ mod tests {
             &mut app,
             TestRequest::with_uri("/health_check").to_request(),
         );
-        println!("{}", res.status());
         assert!(res.status().is_success());
         assert_eq!(read_body(res), "");
 
         let res = read_response(&mut app, TestRequest::with_uri("/metrics").to_request());
         let body = String::from_utf8(res.to_vec()).unwrap();
         println!("{}", body);
-        assert_eq!(
-            &body,
-            &String::from_utf8(
-                web::Bytes::from(r#"{"http_requests_duration":"[0]","http_requests_total":"1"}"#)
-                    .to_vec()
-            )
-            .unwrap()
-        );
+        let json_result: HashMap<String, &str> = serde_json::from_str(body.as_str()).unwrap();
+        assert_eq!(*json_result.get("http_requests_total").unwrap(), "1");
+        let histo = *json_result.get("http_requests_duration").unwrap();
+        let histo_vec: Vec<u64> = serde_json::from_str(histo).unwrap();
+        assert!(*histo_vec.first().unwrap() > 1000);
     }
 }
