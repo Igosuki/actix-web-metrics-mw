@@ -2,6 +2,7 @@
 extern crate log;
 extern crate cadence;
 extern crate metrics;
+#[macro_use]
 extern crate metrics_core;
 extern crate metrics_runtime;
 
@@ -85,31 +86,20 @@ impl Metrics {
     }
 
     fn update_metrics(&self, path: &str, method: &Method, status: StatusCode, clock: SystemTime) {
-        let method = method.to_string();
-        let status = status.as_u16().to_string();
-        let labels: Vec<Label> = vec![
-            ("path", "").into(),
-            Label::new("method", ""),
-            Label::new("status", ""),
-        ];
+        let p = Cow::from(path).into_owned();
+        let m = Cow::from(method.as_str()).into_owned();
+        let st = Cow::from(status.as_str()).into_owned();
+        let labels: Vec<Label> = labels!("path" => p, "method" => m, "status" => st);
         if let Ok(elapsed) = clock.elapsed() {
-            let duration =
-                (elapsed.as_secs() as f64) + f64::from(elapsed.subsec_nanos()) / 1_000_000_000_f64;
+            let duration = (elapsed.as_secs() as f64) + f64::from(elapsed.subsec_nanos());
             self.sink
                 .clone()
-                .histogram_with_labels("http_requests_duration", labels)
+                .histogram_with_labels("http_requests_duration", labels.clone())
                 .record_value(duration as u64);
         }
         self.sink
             .clone()
-            .counter_with_labels(
-                "http_requests_total",
-                vec![
-                    Label::new("path", ""),
-                    Label::new("method", ""),
-                    Label::new("status", ""),
-                ],
-            )
+            .counter_with_labels("http_requests_total", labels.clone())
             .record(1);
     }
 

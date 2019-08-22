@@ -167,7 +167,11 @@ where
     pub fn turn(&mut self) {
         self.controller.observe(&mut self.observer);
         let output = self.observer.drain();
-        log!(log::Level::Info, "{}", output);
+        log!(
+            log::Level::Debug,
+            "Metrics statsd exporter heartbeat {}",
+            output
+        );
     }
 
     pub fn get_controller(self) -> C {
