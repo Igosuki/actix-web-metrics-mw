@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["Guillaume Balaine <igosuki@gmail.com>"]
 edition = "2018"
 description = "Actix middleware library for metrics"
+homepage = "https://github.com/Igosuki/actix_web_metrics_mw"
+repository = "https://github.com/Igosuki/actix_web_metrics_mw"
+documentation = "https://docs.rs/actix_web_metrics_mw"
 
 [dependencies]
 actix-web = "1.0.5"
