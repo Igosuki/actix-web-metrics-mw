@@ -1,7 +1,7 @@
-# WARNING : Not ready for use (2019/08/22)
-
 # actix-web-metrics-mw
 Generic middleware library for actix-web metrics aggregation, can send to various outlets.
+
+## Ready for use, haven't been tested in throughtput intensive environments (just a few thousand req/s)
 
 [![Build Status](https://travis-ci.org/nlopes/actix-web-metrics-mw.svg?branch=master)](https://travis-ci.org/Igosuki/actix-web-metrics-mw)
 [![docs.rs](https://docs.rs/actix-web-metrics-mw/badge.svg)](https://docs.rs/actix-web-metrics-mw)
@@ -30,7 +30,7 @@ First add `actix_web_metrics_mw` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-actix_web_metrics_mw = "0.1"
+actix_web_metrics_mw = "0.0.1"
 ```
 
 You then instantiate the prometheus middleware and pass it to `.wrap()`:

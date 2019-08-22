@@ -4,9 +4,28 @@ version = "0.0.1"
 authors = ["Guillaume Balaine <igosuki@gmail.com>"]
 edition = "2018"
 description = "Actix middleware library for metrics"
-homepage = "https://github.com/Igosuki/actix_web_metrics_mw"
-repository = "https://github.com/Igosuki/actix_web_metrics_mw"
-documentation = "https://docs.rs/actix_web_metrics_mw"
+homepage = "https://github.com/Igosuki/actix-web-metrics-mw"
+repository = "https://github.com/Igosuki/actix-web-metrics-mw"
+documentation = "https://docs.rs/actix-web-metrics-mw"
+readme = "README.md"
+exclude = [".gitignore", ".travis.yml", ".cargo/config", "appveyor.yml"]
+keywords = ["actix", "actix-web", "statsd", "middleware", "metrics", "http", "web", "async"]
+categories = ["network-programming", "asynchronous", "metrics", "web-programming::metrics", "statsd"]
+license = "MIT/Apache-2.0"
+
+#[package.metadata.docs.rs]
+#features = ["metrics", "statsd"]
+
+# http client
+#statsd = ["statsd_metrics"]
+
+[badges]
+travis-ci = { repository = "Igosuki/actix-web-metrics-mw", branch = "master" }
+codecov = { repository = "Igosuki/actix-web-metrics-mw", branch = "master", service = "github" }
+
+[lib]
+name = "actix_web_metrics_mw"
+path = "src/lib.rs"
 
 [dependencies]
 actix-web = "1.0.5"
@@ -17,7 +36,6 @@ metrics-core = "0.5.1"
 metrics-runtime = "0.1.0"
 log = "0.4.8"
 
-#statsd = "^0.9.0"
 cadence = "0.18.0"
 
 serde = "1.0"
@@ -25,3 +43,10 @@ serde_json = "1.0"
 serde_derive = "1.0"
 json = "*"
 
+[patch.crates-io]
+actix-web-metrics-mw = { path = "." }
+
+[profile.release]
+lto = true
+opt-level = 3
+codegen-units = 1
