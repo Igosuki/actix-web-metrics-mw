@@ -97,6 +97,12 @@ fn main() -> std::io::Result<()> {
 }
 ```
 
+### Live functional testing
+
+Use the docker-compose file. Actual result :
+
+![Alt text](/screenshot.png "Tag based metrics in influx and grafana")
+
 ### Special Thanks
 
 - The middleware integration is influenced by the work in [nlopes/actix-web-prom](https://github.com/nlopes/actix-web-prom).
