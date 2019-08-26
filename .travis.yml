@@ -15,3 +15,4 @@ script:
   - cargo fmt -- --check
   - cargo test --verbose
   - cargo clippy
+
