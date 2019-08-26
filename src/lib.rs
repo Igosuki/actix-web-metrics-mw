@@ -311,6 +311,6 @@ mod tests {
         assert_eq!(*json_result.get("http_requests_total").unwrap(), "1");
         let histo = *json_result.get("http_requests_duration").unwrap();
         let histo_vec: Vec<u64> = serde_json::from_str(histo).unwrap();
-        assert!(*histo_vec.first().unwrap() > 1000);
+        assert!(*histo_vec.first().unwrap() > 10);
     }
 }
