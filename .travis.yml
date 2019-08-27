@@ -8,6 +8,11 @@ matrix:
     - rust: nightly
 cache: cargo
 
+before_cache: |
+  if [[ "$TRAVIS_RUST_VERSION" == "nightly-2019-08-10" ]]; then
+    RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install --version 0.6.11 cargo-tarpaulin
+  fi
+
 before_script:
   - rustup component add clippy rustfmt
 
@@ -16,3 +21,10 @@ script:
   - cargo test --verbose
   - cargo clippy
 
+after_success:
+  - |
+    if [[ "$TRAVIS_RUST_VERSION" ==  "nightly-2019-08-10" ]]; then
+        taskset -c 0 cargo tarpaulin --out Xml --all --all-features
+        bash <(curl -s https://codecov.io/bash)
+        echo "Uploaded code coverage"
+    fi
