@@ -28,7 +28,7 @@ name = "actix_web_metrics_mw"
 path = "src/lib.rs"
 
 [dependencies]
-actix-web = "1.0.5"
+actix-web = "1.0.7"
 futures = "0.1.28"
 actix-service = "0.4.1"
 metrics = "0.11.1"
