@@ -24,6 +24,7 @@ use metrics_core::{Key, Label, ScopedString};
 use metrics_runtime::data::Snapshot;
 use metrics_runtime::Measurement;
 use metrics_runtime::{AsScoped, Controller, Receiver, Sink};
+use pin_project::pin_project;
 use serde_json;
 use statsd_metrics::{StatsdExporter, StatsdObserverBuilder};
 use std::borrow::Cow;
@@ -197,23 +198,26 @@ where
         let req = res.request();
         let method = req.method().clone();
         let path = req.path().to_string();
+        let inner = this.inner.clone();
+        let metrics = this.inner.metrics();
+        let clock = this.clock.clone();
         Poll::Ready(Ok(res.map_body(move |mut head, mut body| {
             // We short circuit the response status and body to serve the endpoint
             // automagically. This way the user does not need to set the middleware *AND*
             // an endpoint to serve middleware results. The user is only required to set
             // the middleware and tell us what the endpoint should be.
-            let inner = this.inner.clone();
+
             if inner.matches(&path, &method) {
                 head.status = StatusCode::OK;
-                body = ResponseBody::Other(Body::from_message(this.inner.metrics()));
+                body = ResponseBody::Other(Body::from_message(metrics));
             }
             ResponseBody::Body(StreamLog {
                 body,
                 size: 0,
-                clock: *this.clock,
+                clock,
                 inner,
                 status: head.status,
-                path,
+                path: path.to_string(),
                 method,
             })
         })))
