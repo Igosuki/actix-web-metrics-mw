@@ -1,18 +1,11 @@
 use metrics_core::{Builder, Drain, Key, Observe, Observer};
-use std::borrow::BorrowMut;
-use std::cell::RefCell;
 use std::net::UdpSocket;
-use std::ops::Deref;
-use std::sync::atomic::AtomicPtr;
-use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
-use cadence::ext::MetricBackend;
 use cadence::prelude::*;
 use cadence::{
-    BufferedUdpMetricSink, MetricBuilder, QueuingMetricSink, StatsdClient, UdpMetricSink,
-    DEFAULT_PORT,
+    BufferedUdpMetricSink, Metric, MetricResult, QueuingMetricSink, StatsdClient, DEFAULT_PORT,
 };
 
 /// Builder for [`StatsdObserver`].
@@ -26,6 +19,7 @@ pub struct StatsdObserverBuilder {
 const DEFAULT_HOST: &str = "127.0.0.1";
 const DEFAULT_NAMESPACE: &str = "statsd.test";
 
+#[allow(dead_code)]
 impl StatsdObserverBuilder {
     pub fn new() -> Self {
         Self {
@@ -85,6 +79,21 @@ pub struct StatsdObserver {
 //    }
 //    mb.try_send();
 //}
+pub trait MetricResultExt<M> {
+    fn log(&self) -> ();
+}
+
+impl<M> MetricResultExt<M> for MetricResult<M>
+where
+    M: Metric,
+{
+    fn log(&self) {
+        match self {
+            Ok(_) => (),
+            Err(e) => error!("{:?}", e),
+        }
+    }
+}
 
 impl Observer for StatsdObserver {
     fn observe_counter(&mut self, key: Key, value: u64) {
@@ -93,7 +102,7 @@ impl Observer for StatsdObserver {
         for k in key.labels() {
             mb = mb.with_tag(k.key(), k.value());
         }
-        mb.try_send();
+        mb.try_send().log();
         //        add_key_tags(mb, key);
     }
 
@@ -103,7 +112,7 @@ impl Observer for StatsdObserver {
         for k in key.labels() {
             mb = mb.with_tag(k.key(), k.value());
         }
-        mb.try_send();
+        mb.try_send().log();
         //        add_key_tags(mb, key);
     }
 
@@ -114,7 +123,7 @@ impl Observer for StatsdObserver {
             for k in key.labels() {
                 mb = mb.with_tag(k.key(), k.value());
             }
-            mb.try_send();
+            mb.try_send().log();
             //            add_key_tags(mb, key);
         }
     }

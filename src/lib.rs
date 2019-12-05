@@ -5,37 +5,26 @@ extern crate metrics;
 #[macro_use]
 extern crate metrics_core;
 extern crate metrics_runtime;
-#[macro_use]
 extern crate pin_project;
 use actix_service::{Service, Transform};
 use actix_web::{
     dev::{Body, BodySize, MessageBody, ResponseBody, ServiceRequest, ServiceResponse},
     http::{Method, StatusCode},
     web::Bytes,
-    web::Json,
     Error,
 };
-use actix_web::{http, HttpResponse};
-use futures::future::{ok, Either, Ready};
+use futures::future::{ok, Ready};
 use futures::task::{Context, Poll};
 use futures::Future;
-use metrics::{Recorder, SetRecorderError};
-use metrics_core::{Key, Label, ScopedString};
-use metrics_runtime::data::Snapshot;
+use metrics_core::Label;
 use metrics_runtime::Measurement;
-use metrics_runtime::{AsScoped, Controller, Receiver, Sink};
-use pin_project::pin_project;
+use metrics_runtime::{Controller, Receiver, Sink};
 use serde_json;
 use statsd_metrics::{StatsdExporter, StatsdObserverBuilder};
 use std::borrow::Cow;
-use std::borrow::{Borrow, BorrowMut};
-use std::collections::{BTreeMap, HashMap};
-use std::fmt;
-use std::fmt::Display;
+use std::collections::BTreeMap;
 use std::marker::PhantomData;
-use std::ops::Deref;
 use std::pin::Pin;
-use std::rc::Rc;
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, SystemTime};
@@ -217,7 +206,7 @@ where
                 clock,
                 inner,
                 status: head.status,
-                path: path.to_string(),
+                path,
                 method,
             })
         })))
