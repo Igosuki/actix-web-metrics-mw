@@ -9,7 +9,7 @@ matrix:
 cache: cargo
 
 before_cache: |
-  if [[ "$TRAVIS_RUST_VERSION" == "nightly-2019-08-10" ]]; then
+  if [[ "$TRAVIS_RUST_VERSION" == "nightly-2019-10-30" ]]; then
     RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install --version 0.6.11 cargo-tarpaulin
   fi
 
@@ -23,7 +23,7 @@ script:
 
 after_success:
   - |
-    if [[ "$TRAVIS_RUST_VERSION" ==  "nightly-2019-08-10" ]]; then
+    if [[ "$TRAVIS_RUST_VERSION" ==  "nightly-2019-10-30" ]]; then
         taskset -c 0 cargo tarpaulin --out Xml --all --all-features
         bash <(curl -s https://codecov.io/bash)
         echo "Uploaded code coverage"

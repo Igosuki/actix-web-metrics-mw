@@ -5,32 +5,26 @@ extern crate metrics;
 #[macro_use]
 extern crate metrics_core;
 extern crate metrics_runtime;
-
+extern crate pin_project;
 use actix_service::{Service, Transform};
 use actix_web::{
     dev::{Body, BodySize, MessageBody, ResponseBody, ServiceRequest, ServiceResponse},
     http::{Method, StatusCode},
     web::Bytes,
-    web::Json,
     Error,
 };
-use actix_web::{http, HttpResponse};
-use futures::future::{ok, Either, FutureResult};
-use futures::{Async, Future, Poll};
-use metrics::{Recorder, SetRecorderError};
-use metrics_core::{Key, Label, ScopedString};
-use metrics_runtime::data::Snapshot;
+use futures::future::{ok, Ready};
+use futures::task::{Context, Poll};
+use futures::Future;
+use metrics_core::Label;
 use metrics_runtime::Measurement;
-use metrics_runtime::{AsScoped, Controller, Receiver, Sink};
+use metrics_runtime::{Controller, Receiver, Sink};
 use serde_json;
 use statsd_metrics::{StatsdExporter, StatsdObserverBuilder};
 use std::borrow::Cow;
-use std::borrow::{Borrow, BorrowMut};
-use std::collections::{BTreeMap, HashMap};
-use std::fmt;
-use std::fmt::Display;
+use std::collections::BTreeMap;
 use std::marker::PhantomData;
-use std::ops::Deref;
+use std::pin::Pin;
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, SystemTime};
@@ -74,13 +68,13 @@ impl Metrics {
         let receiver = Receiver::builder()
             .build()
             .expect("failed to create receiver");
-        let controller = receiver.get_controller();
+        let controller = receiver.controller();
         let exporter = StatsdExporter::new(
             controller.clone(),
             StatsdObserverBuilder::new(),
             Duration::from_secs(5),
         );
-        let mut sink = receiver.get_sink();
+        let mut sink = receiver.sink();
         let x: Vec<Label> = labels.iter().map(|&kv| to_scoped(kv)).collect();
         sink.add_default_labels(x);
         let m = Metrics {
@@ -151,7 +145,7 @@ where
     type Error = Error;
     type InitError = ();
     type Transform = MetricsMiddleware<S>;
-    type Future = FutureResult<Self::Transform, Self::InitError>;
+    type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
     fn new_transform(&self, service: S) -> Self::Future {
         ok(MetricsMiddleware {
@@ -162,13 +156,16 @@ where
 }
 
 #[doc(hidden)]
+#[pin_project::pin_project]
 pub struct MetricsResponse<S, B>
 where
     B: MessageBody,
     S: Service,
 {
+    #[pin]
     fut: S::Future,
     clock: SystemTime,
+    #[pin]
     inner: Arc<Metrics>,
     _t: PhantomData<(B,)>,
 }
@@ -178,30 +175,35 @@ where
     B: MessageBody,
     S: Service<Request = ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
 {
-    type Item = ServiceResponse<StreamLog<B>>;
-    type Error = Error;
+    type Output = Result<ServiceResponse<StreamLog<B>>, Error>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let res = futures::try_ready!(self.fut.poll());
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+        let res = match futures::ready!(this.fut.poll(cx)) {
+            Ok(res) => res,
+            Err(e) => return Poll::Ready(Err(e)),
+        };
 
         let req = res.request();
-        let inner = self.inner.clone();
         let method = req.method().clone();
         let path = req.path().to_string();
-
-        Ok(Async::Ready(res.map_body(move |mut head, mut body| {
+        let inner = this.inner.clone();
+        let metrics = this.inner.metrics();
+        let clock = this.clock.clone();
+        Poll::Ready(Ok(res.map_body(move |mut head, mut body| {
             // We short circuit the response status and body to serve the endpoint
             // automagically. This way the user does not need to set the middleware *AND*
             // an endpoint to serve middleware results. The user is only required to set
             // the middleware and tell us what the endpoint should be.
+
             if inner.matches(&path, &method) {
                 head.status = StatusCode::OK;
-                body = ResponseBody::Other(Body::from_message(inner.metrics()));
+                body = ResponseBody::Other(Body::from_message(metrics));
             }
             ResponseBody::Body(StreamLog {
                 body,
                 size: 0,
-                clock: self.clock,
+                clock,
                 inner,
                 status: head.status,
                 path,
@@ -235,13 +237,13 @@ impl<B: MessageBody> MessageBody for StreamLog<B> {
         self.body.size()
     }
 
-    fn poll_next(&mut self) -> Poll<Option<Bytes>, Error> {
-        match self.body.poll_next()? {
-            Async::Ready(Some(chunk)) => {
+    fn poll_next(&mut self, cx: &mut Context) -> Poll<Option<Result<Bytes, Error>>> {
+        match self.body.poll_next(cx) {
+            Poll::Ready(Some(Ok(chunk))) => {
                 self.size += chunk.len();
-                Ok(Async::Ready(Some(chunk)))
+                Poll::Ready(Some(Ok(chunk.into())))
             }
-            val => Ok(val),
+            val => val,
         }
     }
 }
@@ -262,8 +264,8 @@ where
     type Error = Error;
     type Future = MetricsResponse<S, B>;
 
-    fn poll_ready(&mut self) -> Poll<(), Self::Error> {
-        self.service.poll_ready()
+    fn poll_ready(&mut self, ctx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.service.poll_ready(ctx)
     }
 
     fn call(&mut self, req: ServiceRequest) -> Self::Future {
@@ -281,7 +283,9 @@ mod tests {
     use super::*;
     use actix_web::test::{call_service, init_service, read_body, read_response, TestRequest};
     use actix_web::{web, App, HttpResponse};
+    use futures::task::Spawn;
     use std::any::Any;
+    use std::collections::HashMap;
 
     #[test]
     fn middleware_basic() {
