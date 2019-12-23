@@ -1,8 +1,6 @@
 # actix-web-metrics-mw
 Generic middleware library for actix-web metrics aggregation, can send to various outlets.
 
-## Ready for use, haven't been tested in throughtput intensive environments (just a few thousand req/s)
-
 [![Build Status](https://travis-ci.org/nlopes/actix-web-metrics-mw.svg?branch=master)](https://travis-ci.org/Igosuki/actix-web-metrics-mw)
 [![docs.rs](https://docs.rs/actix-web-metrics-mw/badge.svg)](https://docs.rs/actix-web-metrics-mw)
 [![crates.io](https://img.shields.io/crates/v/actix-web-metrics-mw.svg)](https://crates.io/crates/actix-web-metrics-mw)
@@ -21,6 +19,12 @@ Default metrics :
   - `http_requests_duration` (labels: endpoint, method,
    status): histogram of request durations for each endpoint.
 
+## Dependencies
+
+- actix 2
+- futures 0.3
+- metrics 0.12
+
 ## Issues
 Please feel free to submit issues for evolutions you feel are necessary.
 
@@ -30,7 +34,7 @@ First add `actix_web_metrics_mw` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-actix_web_metrics_mw = "0.0.1"
+actix_web_metrics_mw = "0.2.0"
 ```
 
 You then instantiate the prometheus middleware and pass it to `.wrap()`:
