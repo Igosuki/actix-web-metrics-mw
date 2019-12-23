@@ -19,6 +19,10 @@ license = "MIT/Apache-2.0"
 # http client
 #statsd = ["statsd_metrics"]
 
+[[example]]
+name = "simple"
+path = "examples/simple.rs"
+
 [badges]
 travis-ci = { repository = "Igosuki/actix-web-metrics-mw", branch = "master" }
 codecov = { repository = "Igosuki/actix-web-metrics-mw", branch = "master", service = "github" }
@@ -28,12 +32,12 @@ name = "actix_web_metrics_mw"
 path = "src/lib.rs"
 
 [dependencies]
-actix-web = "2.0.0-alpha.2"
+actix-web = "2.0.0-rc"
 futures = "0.3"
-actix-service = "1.0.0-alpha.2"
-metrics = "0.11.1"
-metrics-core = "0.5.1"
-metrics-runtime = "0.1.0"
+actix-service = "1.0.1"
+metrics = "0.12.1"
+metrics-core = "0.5.2"
+metrics-runtime = "0.12.1"
 log = "0.4.8"
 pin-project = "0.4.6"
 cadence = "0.18.0"
@@ -41,7 +45,11 @@ cadence = "0.18.0"
 serde = "1.0"
 serde_json = "1.0"
 serde_derive = "1.0"
-json = "0.11.15"
+json = "0.12.0"
+
+[dev-dependencies]
+actix-rt = "1.0.0"
+futures-util = "0.3.1"
 
 #[patch.crates-io]
 #actix-web-metrics-mw = { path = "." }

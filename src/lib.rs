@@ -68,13 +68,13 @@ impl Metrics {
         let receiver = Receiver::builder()
             .build()
             .expect("failed to create receiver");
-        let controller = receiver.get_controller();
+        let controller = receiver.controller();
         let exporter = StatsdExporter::new(
             controller.clone(),
             StatsdObserverBuilder::new(),
             Duration::from_secs(5),
         );
-        let mut sink = receiver.get_sink();
+        let mut sink = receiver.sink();
         let x: Vec<Label> = labels.iter().map(|&kv| to_scoped(kv)).collect();
         sink.add_default_labels(x);
         let m = Metrics {
@@ -285,6 +285,7 @@ mod tests {
     use actix_web::{web, App, HttpResponse};
     use futures::task::Spawn;
     use std::any::Any;
+    use std::collections::HashMap;
 
     #[test]
     fn middleware_basic() {
