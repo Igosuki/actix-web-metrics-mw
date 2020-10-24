@@ -34,9 +34,8 @@ async fn main() -> result::Result<(), Error> {
                     .to(|| async { "Hello, middleware! Check the console where the server is run." }),
             )
         })
-        .bind("127.0.0.1:8080")
-        .unwrap()
-        .start();
+        .bind("127.0.0.1:8080")?
+        .run();
         let _ = tx.send(server.clone());
         server.await
     }, producer) {

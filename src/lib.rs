@@ -6,6 +6,15 @@ extern crate metrics;
 extern crate metrics_core;
 extern crate metrics_runtime;
 extern crate pin_project;
+
+use std::borrow::Cow;
+use std::collections::BTreeMap;
+use std::marker::PhantomData;
+use std::pin::Pin;
+use std::sync::Arc;
+use std::thread;
+use std::time::{Duration, SystemTime};
+
 use actix_service::{Service, Transform};
 use actix_web::{
     dev::{Body, BodySize, MessageBody, ResponseBody, ServiceRequest, ServiceResponse},
@@ -20,14 +29,9 @@ use metrics_core::Label;
 use metrics_runtime::Measurement;
 use metrics_runtime::{Controller, Receiver, Sink};
 use serde_json;
+use pin_project::{pin_project, pinned_drop};
+
 use statsd_metrics::{StatsdExporter, StatsdObserverBuilder};
-use std::borrow::Cow;
-use std::collections::BTreeMap;
-use std::marker::PhantomData;
-use std::pin::Pin;
-use std::sync::Arc;
-use std::thread;
-use std::time::{Duration, SystemTime};
 
 mod statsd_metrics;
 
@@ -214,7 +218,9 @@ where
 }
 
 #[doc(hidden)]
+#[pin_project(PinnedDrop)]
 pub struct StreamLog<B> {
+    #[pin]
     body: ResponseBody<B>,
     size: usize,
     clock: SystemTime,
@@ -224,8 +230,9 @@ pub struct StreamLog<B> {
     method: Method,
 }
 
-impl<B> Drop for StreamLog<B> {
-    fn drop(&mut self) {
+#[pinned_drop]
+impl<B> PinnedDrop for StreamLog<B> {
+    fn drop(self: Pin<&mut Self>) {
         // update the metrics for this request at the very end of responding
         self.inner
             .update_metrics(&self.path, &self.method, self.status, self.clock);
@@ -237,11 +244,12 @@ impl<B: MessageBody> MessageBody for StreamLog<B> {
         self.body.size()
     }
 
-    fn poll_next(&mut self, cx: &mut Context) -> Poll<Option<Result<Bytes, Error>>> {
-        match self.body.poll_next(cx) {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Result<Bytes, Error>>> {
+        let this = self.project();
+        match this.body.poll_next(cx) {
             Poll::Ready(Some(Ok(chunk))) => {
-                self.size += chunk.len();
-                Poll::Ready(Some(Ok(chunk.into())))
+                *this.size += chunk.len();
+                Poll::Ready(Some(Ok(chunk)))
             }
             val => val,
         }
@@ -283,12 +291,10 @@ mod tests {
     use super::*;
     use actix_web::test::{call_service, init_service, read_body, read_response, TestRequest};
     use actix_web::{web, App, HttpResponse};
-    use futures::task::Spawn;
-    use std::any::Any;
     use std::collections::HashMap;
 
-    #[test]
-    fn middleware_basic() {
+    #[actix_rt::test]
+    async fn middleware_basic() {
         let metrics = Metrics::new(
             "/metrics",
             "actix_web_mw_test",
@@ -299,16 +305,17 @@ mod tests {
             App::new()
                 .wrap(metrics)
                 .service(web::resource("/health_check").to(|| HttpResponse::Ok())),
-        );
+        ).await;
 
         let res = call_service(
             &mut app,
             TestRequest::with_uri("/health_check").to_request(),
-        );
+        ).await;
         assert!(res.status().is_success());
-        assert_eq!(read_body(res), "");
+        let body1 = read_body(res).await;
+        assert_eq!(body1, "");
 
-        let res = read_response(&mut app, TestRequest::with_uri("/metrics").to_request());
+        let res = read_response(&mut app, TestRequest::with_uri("/metrics").to_request()).await;
         let body = String::from_utf8(res.to_vec()).unwrap();
         println!("{}", body);
         let json_result: HashMap<String, &str> = serde_json::from_str(body.as_str()).unwrap();
