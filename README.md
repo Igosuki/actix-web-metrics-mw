@@ -1,7 +1,7 @@
 # actix-web-metrics-mw
 Generic middleware library for actix-web metrics aggregation, can send to various outlets.
 
-[![Build Status](https://travis-ci.org/nlopes/actix-web-metrics-mw.svg?branch=master)](https://travis-ci.org/Igosuki/actix-web-metrics-mw)
+[![Build Status](https://github.com/Igosuki/actix-web-metrics-mw/workflows/build.yml/badge.svg](https://github.com/Igosuki/actix-web-metrics-mw/actions)
 [![docs.rs](https://docs.rs/actix-web-metrics-mw/badge.svg)](https://docs.rs/actix-web-metrics-mw)
 [![crates.io](https://img.shields.io/crates/v/actix-web-metrics-mw.svg)](https://crates.io/crates/actix-web-metrics-mw)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/nlopes/actix-web-metrics-mw/blob/master/LICENSE)
