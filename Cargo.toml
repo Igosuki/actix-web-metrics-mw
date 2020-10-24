@@ -1,6 +1,6 @@
 [package]
 name = "actix_web_metrics_mw"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Guillaume Balaine <igosuki@gmail.com>"]
 edition = "2018"
 description = "Actix middleware library for metrics"

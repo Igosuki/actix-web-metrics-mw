@@ -29,7 +29,6 @@ use metrics_core::Label;
 use metrics_runtime::Measurement;
 use metrics_runtime::{Controller, Receiver, Sink};
 use pin_project::{pin_project, pinned_drop};
-use serde_json;
 
 use statsd_metrics::{StatsdExporter, StatsdObserverBuilder};
 
@@ -74,7 +73,7 @@ impl Metrics {
             .expect("failed to create receiver");
         let controller = receiver.controller();
         let exporter = StatsdExporter::new(
-            controller.clone(),
+            controller,
             StatsdObserverBuilder::new(),
             Duration::from_secs(5),
         );
@@ -106,7 +105,7 @@ impl Metrics {
         }
         self.sink
             .clone()
-            .counter_with_labels("http_requests_total", labels.clone())
+            .counter_with_labels("http_requests_total", labels)
             .record(1);
     }
 
@@ -193,7 +192,7 @@ where
         let path = req.path().to_string();
         let inner = this.inner.clone();
         let metrics = this.inner.metrics();
-        let clock = this.clock.clone();
+        let clock = this.clock;
         Poll::Ready(Ok(res.map_body(move |mut head, mut body| {
             // We short circuit the response status and body to serve the endpoint
             // automagically. This way the user does not need to set the middleware *AND*
@@ -207,7 +206,7 @@ where
             ResponseBody::Body(StreamLog {
                 body,
                 size: 0,
-                clock,
+                clock: *clock,
                 inner,
                 status: head.status,
                 path,

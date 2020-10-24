@@ -80,7 +80,7 @@ pub struct StatsdObserver {
 //    mb.try_send();
 //}
 pub trait MetricResultExt<M> {
-    fn log(&self) -> ();
+    fn log(&self);
 }
 
 impl<M> MetricResultExt<M> for MetricResult<M>
