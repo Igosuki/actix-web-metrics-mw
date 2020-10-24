@@ -1,6 +1,6 @@
 [package]
 name = "actix_web_metrics_mw"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Guillaume Balaine <igosuki@gmail.com>"]
 edition = "2018"
 description = "Actix middleware library for metrics"
@@ -32,24 +32,24 @@ name = "actix_web_metrics_mw"
 path = "src/lib.rs"
 
 [dependencies]
-actix-web = "2.0.0-rc"
+actix-web = { version = "3.0", default-features = false }
 futures = "0.3"
-actix-service = "1.0.1"
-metrics = "0.12.1"
-metrics-core = "0.5.2"
-metrics-runtime = "0.12.1"
-log = "0.4.8"
-pin-project = "0.4.6"
-cadence = "0.18.0"
+actix-service = "1.0"
+metrics = "0.12"
+metrics-core = "0.5"
+metrics-runtime = "0.12"
+log = "0.4"
+pin-project = "1"
+cadence = "0.18"
 
 serde = "1.0"
 serde_json = "1.0"
 serde_derive = "1.0"
-json = "0.12.0"
+json = "0.12"
 
 [dev-dependencies]
-actix-rt = "1.0.0"
-futures-util = "0.3.1"
+actix-rt = "1.1.0"
+futures-util = "0.3"
 
 #[patch.crates-io]
 #actix-web-metrics-mw = { path = "." }
