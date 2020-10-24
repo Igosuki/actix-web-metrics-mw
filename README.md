@@ -21,7 +21,7 @@ Default metrics :
 
 ## Dependencies
 
-- actix 2
+- actix 3
 - futures 0.3
 - metrics 0.12
 
