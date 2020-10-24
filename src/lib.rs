@@ -28,8 +28,8 @@ use futures::Future;
 use metrics_core::Label;
 use metrics_runtime::Measurement;
 use metrics_runtime::{Controller, Receiver, Sink};
-use serde_json;
 use pin_project::{pin_project, pinned_drop};
+use serde_json;
 
 use statsd_metrics::{StatsdExporter, StatsdObserverBuilder};
 
@@ -305,12 +305,14 @@ mod tests {
             App::new()
                 .wrap(metrics)
                 .service(web::resource("/health_check").to(|| HttpResponse::Ok())),
-        ).await;
+        )
+        .await;
 
         let res = call_service(
             &mut app,
             TestRequest::with_uri("/health_check").to_request(),
-        ).await;
+        )
+        .await;
         assert!(res.status().is_success());
         let body1 = read_body(res).await;
         assert_eq!(body1, "");

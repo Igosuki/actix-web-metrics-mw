@@ -1,15 +1,15 @@
-use actix_web::client::{Client};
+use actix_web::client::Client;
 use actix_web::{web, App, Error, HttpServer};
 use actix_web_metrics_mw::Metrics;
 
 use actix_web::dev::Server;
-use core::result;
-use futures::{join};
-use std::collections::HashMap;
-use futures_util::future::FutureExt;
-use std::sync::mpsc;
 use actix_web::web::BytesMut;
+use core::result;
+use futures::join;
 use futures::StreamExt;
+use futures_util::future::FutureExt;
+use std::collections::HashMap;
+use std::sync::mpsc;
 
 #[actix_rt::main]
 async fn main() -> result::Result<(), Error> {
@@ -23,22 +23,26 @@ async fn main() -> result::Result<(), Error> {
     let (tx, rx) = mpsc::channel();
 
     let producer = producer_loop().then(move |_e| {
-        let handle : Server = rx.recv().unwrap();
+        let handle: Server = rx.recv().unwrap();
         handle.stop(true).map(Ok)
     });
 
-    match join!(async {
-        let server = HttpServer::new(move || {
-            App::new().wrap(metrics.clone()).service(
-                web::resource("/")
-                    .to(|| async { "Hello, middleware! Check the console where the server is run." }),
-            )
-        })
-        .bind("127.0.0.1:8080")?
-        .run();
-        let _ = tx.send(server.clone());
-        server.await
-    }, producer) {
+    match join!(
+        async {
+            let server = HttpServer::new(move || {
+                App::new()
+                    .wrap(metrics.clone())
+                    .service(web::resource("/").to(|| async {
+                        "Hello, middleware! Check the console where the server is run."
+                    }))
+            })
+            .bind("127.0.0.1:8080")?
+            .run();
+            let _ = tx.send(server.clone());
+            server.await
+        },
+        producer
+    ) {
         (_, Err(e)) => Err(e),
         (Err(e), _) => Err(Error::from(e)),
         (_, _) => Ok(()),
@@ -63,10 +67,14 @@ async fn producer_loop() -> Result<(), Error> {
         let _ = client.get("http://localhost:8080/").send().await;
         loops += 1;
     }
-    let mut resp = client.get("http://localhost:8080/metrics").send().await.map_err(|e| {
-        println!("{:?}", e);
-        Error::from(e)
-    })?;
+    let mut resp = client
+        .get("http://localhost:8080/metrics")
+        .send()
+        .await
+        .map_err(|e| {
+            println!("{:?}", e);
+            Error::from(e)
+        })?;
     let mut body = BytesMut::new();
     while let Some(chunk) = resp.next().await {
         body.extend_from_slice(&chunk?);
